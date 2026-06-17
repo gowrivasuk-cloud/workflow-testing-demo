@@ -2,9 +2,15 @@ name: n8n Workflow CI/CD
 
 on:
   push:
-    branches: [dev]
+    branches:
+      - main
+      - dev
+
   pull_request:
-    branches: [dev, staging, main]
+    branches:
+      - main
+      - dev
+      - staging
 
 jobs:
   test-and-notify-n8n:
