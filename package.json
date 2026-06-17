@@ -1,9 +1,9 @@
 {
   "scripts": {
-    "test": "npx jest",
-    "test:unit": "npx jest tests/unit",
-    "test:http-mock": "npx jest tests/http-mock",
-    "test:snapshot": "npx jest tests/snapshot"
+    "test": "node ./node_modules/jest/bin/jest.js",
+    "test:unit": "node ./node_modules/jest/bin/jest.js tests/unit",
+    "test:http-mock": "node ./node_modules/jest/bin/jest.js tests/http-mock",
+    "test:snapshot": "node ./node_modules/jest/bin/jest.js tests/snapshot"
   },
   "devDependencies": {
     "jest": "^29.7.0",
