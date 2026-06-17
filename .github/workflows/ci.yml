@@ -38,6 +38,7 @@ jobs:
         run: npm run test:snapshot
 
       - name: Send CI result to n8n
+        continue-on-error: true
         if: success()
         run: |
           curl -X POST "${{ secrets.N8N_CICD_WEBHOOK_URL }}" \
