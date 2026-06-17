@@ -3,5 +3,5 @@ function getOrderStatus(payment) {
 }
 
 test("Order approved", () => {
-  expect(getOrderStatus(true)).toBe("REJECTED");
+  expect(getOrderStatus(true)).toBe("APPROVED");
 });
