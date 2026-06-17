@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:http-mock": "jest tests/http-mock",
+    "test:snapshot": "jest tests/snapshot"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nock": "^13.5.6"
+  }
+}

@@ -1,0 +1,504 @@
+{
+  "name": "Real Testing CI CD Workflow Controller - n8n 2.8.4",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "REAL CI/CD FLOW\n\nGitHub Actions sends test result JSON here.\nThis workflow checks:\n1. Jest unit tests\n2. HTTP mock tests\n3. Snapshot tests\n4. Git branch/version control\n5. Approval\n6. Dev \u2192 Staging \u2192 Prod promotion",
+        "height": 300,
+        "width": 360
+      },
+      "id": "note-overview",
+      "name": "Workflow Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        120,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "workflow-cicd-test-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "github-webhook",
+      "name": "GitHub Actions Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        160,
+        260
+      ],
+      "webhookId": "workflow-cicd-test-report"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      source: 'manual-demo',\n      repository: 'gowri/order-workflows',\n      branch: 'dev',\n      commitSha: 'demo123456789',\n      workflowName: 'Order Status Workflow',\n      workflowId: 'REPLACE_WITH_DEV_WORKFLOW_ID',\n      jestUnitTest: 'PASSED',\n      httpMockTest: 'PASSED',\n      snapshotTest: 'PASSED',\n      snapshotChanged: false,\n      managerApproval: 'APPROVED',\n      requestedEnvironment: 'staging',\n      n8nBaseUrl: 'https://YOUR-N8N-DOMAIN.com',\n      n8nApiKey: 'REPLACE_WITH_N8N_API_KEY'\n    }\n  }\n];"
+      },
+      "id": "sample-payload",
+      "name": "Sample Real CI Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\nreturn [\n  {\n    json: {\n      source: body.source || 'github-actions',\n      repository: body.repository || body.repo || 'unknown/repository',\n      branch: body.branch || body.ref || 'unknown',\n      commitSha: body.commitSha || body.sha || '',\n      workflowName: body.workflowName || 'Unknown Workflow',\n      workflowId: body.workflowId || 'REPLACE_WITH_DEV_WORKFLOW_ID',\n      jestUnitTest: body.jestUnitTest || body.jest || 'FAILED',\n      httpMockTest: body.httpMockTest || body.httpMock || 'FAILED',\n      snapshotTest: body.snapshotTest || body.snapshot || 'FAILED',\n      snapshotChanged: body.snapshotChanged === true,\n      managerApproval: body.managerApproval || 'PENDING',\n      requestedEnvironment: body.requestedEnvironment || 'staging',\n      n8nBaseUrl: body.n8nBaseUrl || 'https://YOUR-N8N-DOMAIN.com',\n      n8nApiKey: body.n8nApiKey || 'REPLACE_WITH_N8N_API_KEY'\n    }\n  }\n];"
+      },
+      "id": "normalize-payload",
+      "name": "Normalize GitHub Test Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://dummyjson.com/products/1",
+        "responseFormat": "json",
+        "options": {}
+      },
+      "id": "real-http-api",
+      "name": "Real HTTP API Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ci = $('Normalize GitHub Test Report').first()?.json || $('Sample Real CI Payload').first().json;\nconst api = $input.first().json;\n\nconst isDevBranch = ci.branch === 'dev' || ci.branch === 'refs/heads/dev';\nconst testsPassed =\n  ci.jestUnitTest === 'PASSED' &&\n  ci.httpMockTest === 'PASSED' &&\n  ci.snapshotTest === 'PASSED' &&\n  ci.snapshotChanged === false;\n\nconst apiHealthy = !!api && !!api.id;\n\nreturn [\n  {\n    json: {\n      ...ci,\n      apiProductTitle: api.title || null,\n      apiHealthy,\n      isDevBranch,\n      testsPassed,\n      versionControlCheck: isDevBranch ? 'VALID_DEV_BRANCH' : 'INVALID_BRANCH',\n      ciCdDecision: testsPassed && apiHealthy && isDevBranch ? 'ALLOW_STAGING' : 'BLOCK_DEPLOYMENT'\n    }\n  }\n];"
+      },
+      "id": "validate-ci-cd",
+      "name": "Validate CI/CD Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.ciCdDecision }}",
+              "operation": "equal",
+              "value2": "ALLOW_STAGING"
+            }
+          ]
+        }
+      },
+      "id": "if-tests-pass",
+      "name": "IF All Tests Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.managerApproval }}",
+              "operation": "equal",
+              "value2": "APPROVED"
+            }
+          ]
+        }
+      },
+      "id": "if-approved",
+      "name": "IF Manager Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.n8nBaseUrl + '/api/v1/workflows/' + $json.workflowId + '/activate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "={{ $json.n8nApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "deploy-staging",
+      "name": "Deploy / Activate Staging Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Validate CI/CD Rules').first().json;\nconst deployResult = $input.first().json;\n\nreturn [\n  {\n    json: {\n      ...original,\n      stagingDeploymentResult: deployResult,\n      stagingStatus: deployResult.error ? 'STAGING_DEPLOY_FAILED_OR_API_NOT_CONFIGURED' : 'STAGING_DEPLOY_REQUEST_SENT',\n      prodPromotionAllowed: !deployResult.error && original.managerApproval === 'APPROVED'\n    }\n  }\n];"
+      },
+      "id": "staging-summary",
+      "name": "Staging Deployment Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.prodPromotionAllowed }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-prod-allowed",
+      "name": "IF Prod Promotion Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2280,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.n8nBaseUrl + '/api/v1/workflows/' + $json.workflowId + '/activate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "={{ $json.n8nApiKey }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "deploy-prod",
+      "name": "Deploy / Activate Production Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2540,
+        40
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Staging Deployment Summary').first().json;\nconst prodResult = $input.first().json;\n\nreturn [\n  {\n    json: {\n      result: prodResult.error ? 'PROD_DEPLOY_FAILED_OR_API_NOT_CONFIGURED' : 'SUCCESS',\n      message: prodResult.error\n        ? 'Tests passed and approval was completed, but production API deployment failed. Check n8nBaseUrl, workflowId and API key.'\n        : 'Workflow passed Jest, HTTP mock, snapshot, version control checks and was promoted Dev \u2192 Staging \u2192 Prod.',\n      repository: original.repository,\n      branch: original.branch,\n      commitSha: original.commitSha,\n      workflowName: original.workflowName,\n      jestUnitTest: original.jestUnitTest,\n      httpMockTest: original.httpMockTest,\n      snapshotTest: original.snapshotTest,\n      snapshotChanged: original.snapshotChanged,\n      apiHealthy: original.apiHealthy,\n      versionControlCheck: original.versionControlCheck,\n      stagingStatus: original.stagingStatus,\n      productionDeploymentResult: prodResult\n    }\n  }\n];"
+      },
+      "id": "success-summary",
+      "name": "Final Success / Prod Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      result: 'BLOCKED',\n      message: 'Deployment blocked. Check Jest, HTTP mock, snapshot, API health, or branch validation.',\n      repository: $json.repository,\n      branch: $json.branch,\n      workflowName: $json.workflowName,\n      jestUnitTest: $json.jestUnitTest,\n      httpMockTest: $json.httpMockTest,\n      snapshotTest: $json.snapshotTest,\n      snapshotChanged: $json.snapshotChanged,\n      apiHealthy: $json.apiHealthy,\n      versionControlCheck: $json.versionControlCheck,\n      ciCdDecision: $json.ciCdDecision\n    }\n  }\n];"
+      },
+      "id": "blocked-summary",
+      "name": "Blocked Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      result: 'APPROVAL_PENDING_OR_REJECTED',\n      message: 'Tests passed, but manager approval is not APPROVED. Production promotion stopped.',\n      repository: $json.repository,\n      branch: $json.branch,\n      workflowName: $json.workflowName,\n      managerApproval: $json.managerApproval\n    }\n  }\n];"
+      },
+      "id": "approval-summary",
+      "name": "Approval Pending / Rejected Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      result: 'STAGING_DEPLOYMENT_NOT_CONFIRMED',\n      message: 'Staging promotion was not confirmed, so production deployment was stopped.',\n      repository: $json.repository,\n      workflowName: $json.workflowName,\n      stagingStatus: $json.stagingStatus\n    }\n  }\n];"
+      },
+      "id": "staging-failed-summary",
+      "name": "Staging Failed Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2540,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to GitHub",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        3060,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "GitHub Actions Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize GitHub Test Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sample Real CI Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize GitHub Test Report": {
+      "main": [
+        [
+          {
+            "node": "Real HTTP API Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Real CI Payload": {
+      "main": [
+        [
+          {
+            "node": "Real HTTP API Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real HTTP API Check": {
+      "main": [
+        [
+          {
+            "node": "Validate CI/CD Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate CI/CD Rules": {
+      "main": [
+        [
+          {
+            "node": "IF All Tests Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF All Tests Passed?": {
+      "main": [
+        [
+          {
+            "node": "IF Manager Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Blocked Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Manager Approved?": {
+      "main": [
+        [
+          {
+            "node": "Deploy / Activate Staging Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Approval Pending / Rejected Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deploy / Activate Staging Workflow": {
+      "main": [
+        [
+          {
+            "node": "Staging Deployment Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staging Deployment Summary": {
+      "main": [
+        [
+          {
+            "node": "IF Prod Promotion Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Prod Promotion Allowed?": {
+      "main": [
+        [
+          {
+            "node": "Deploy / Activate Production Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Staging Failed Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deploy / Activate Production Workflow": {
+      "main": [
+        [
+          {
+            "node": "Final Success / Prod Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Success / Prod Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond to GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blocked Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond to GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Pending / Rejected Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond to GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staging Failed Summary": {
+      "main": [
+        [
+          {
+            "node": "Respond to GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "real-ci-cd-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
